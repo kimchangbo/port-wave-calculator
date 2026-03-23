@@ -4,12 +4,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 from scipy.interpolate import CubicSpline
-
-# ★ 한글 깨짐 방지 라이브러리 추가 ★
-import koreanize_matplotlib 
+import urllib.request
+import os
+import matplotlib.font_manager as fm
 
 # 페이지 기본 설정
 st.set_page_config(page_title="최대파고 산정 프로그램", layout="wide", page_icon="🌊")
+
+# --- ★ 한글 깨짐 완벽 방지 (구글 폰트 직접 다운로드 및 적용) ★ ---
+@st.cache_resource
+def load_korean_font():
+    font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf"
+    font_path = "NanumGothic.ttf"
+    
+    # 폰트 파일이 없으면 다운로드
+    if not os.path.exists(font_path):
+        urllib.request.urlretrieve(font_url, font_path)
+        
+    # 다운받은 폰트를 matplotlib에 등록
+    fm.fontManager.addfont(font_path)
+    plt.rc('font', family='NanumGothic')
+    plt.rcParams['axes.unicode_minus'] = False # 마이너스 기호 깨짐 방지
+
+load_korean_font()
+# -----------------------------------------------------------------
+
 
 # 1. SPM Table C-1
 spm_table = [
