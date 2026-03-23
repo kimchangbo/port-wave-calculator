@@ -5,15 +5,11 @@ import numpy as np
 from matplotlib.ticker import MultipleLocator
 from scipy.interpolate import CubicSpline
 
+# ★ 한글 깨짐 방지 라이브러리 추가 ★
+import koreanize_matplotlib 
+
 # 페이지 기본 설정
 st.set_page_config(page_title="최대파고 산정 프로그램", layout="wide", page_icon="🌊")
-
-# 한글 폰트 및 그래프 설정
-plt.rcParams['axes.unicode_minus'] = False
-try:
-    plt.rcParams['font.family'] = 'Malgun Gothic' # 윈도우 로컬용
-except:
-    pass
 
 # 1. SPM Table C-1
 spm_table = [
@@ -127,7 +123,6 @@ def get_user_curve_spline(x_arr, target_H0p_L0):
 
 # ★ 스플라인 기반 모사 그래프 생성 함수 ★
 def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
-    # 크기를 약간 줄여서 화면에 적당하게 표시되도록 설정 (기존 6.5, 8 -> 5.5, 6.8)
     fig, ax = plt.subplots(figsize=(5.5, 6.8)) 
     
     x_max = max(4.0, h_H0p_read + 0.5)
@@ -270,7 +265,7 @@ with col2:
         ratio_hmax_h13 = Hmax_graph / H13
 
         # -----------------------------------------------------
-        # 렌더링 영역 (첨부 이미지 양식 완벽 일치)
+        # 렌더링 영역
         # -----------------------------------------------------
         with st.container():
             st.markdown("### 가) 해저경사별 쇄파대 최대파고 산정도 판독 (도참 4-18a ~ 4-19e)")
@@ -315,7 +310,6 @@ with col2:
 
             st.markdown("---")
 
-            # 도표가 적당한 크기로 중앙에 배치되도록 여백 조정 (비율 1.5 : 2 : 1.5 로 줄임)
             spacer1, col_fig, spacer2 = st.columns([1.5, 2.5, 1.5])
             with col_fig:
                 with st.spinner("스플라인 기반 원본 도표 생성 중..."):
