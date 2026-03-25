@@ -4,31 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 from scipy.interpolate import CubicSpline
-import urllib.request
-import os
-import matplotlib.font_manager as fm
 
 # 페이지 기본 설정
 st.set_page_config(page_title="최대파고 산정 프로그램", layout="wide", page_icon="🌊")
 
-# --- ★ 한글 깨짐 완벽 방지 (구글 폰트 직접 다운로드 및 적용) ★ ---
-@st.cache_resource
-def load_korean_font():
-    font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf"
-    font_path = "NanumGothic.ttf"
-    
-    # 폰트 파일이 없으면 다운로드
-    if not os.path.exists(font_path):
-        urllib.request.urlretrieve(font_url, font_path)
-        
-    # 다운받은 폰트를 matplotlib에 등록
-    fm.fontManager.addfont(font_path)
-    plt.rc('font', family='NanumGothic')
-    plt.rcParams['axes.unicode_minus'] = False # 마이너스 기호 깨짐 방지
-
-load_korean_font()
-# -----------------------------------------------------------------
-
+# 한글 폰트 및 그래프 설정
+plt.rcParams['axes.unicode_minus'] = False
+try:
+    plt.rcParams['font.family'] = 'Malgun Gothic' # 윈도우 로컬용
+except:
+    pass
 
 # 1. SPM Table C-1
 spm_table = [
@@ -157,7 +142,6 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
     
     x_arr = np.linspace(0, x_max, 500)
     
-    # 1. 기준 곡선 그리기
     for s in goda_data_1_100.keys():
         y_curve = CubicSpline(goda_data_1_100[s]["x"], goda_data_1_100[s]["y"])(x_arr)
         ax.plot(x_arr, y_curve, color='black', linewidth=1.2)
@@ -175,12 +159,9 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
         label_text = f"H'o/Lo={s}" if s in [0.002, 0.005] else f"{s}"
         ax.text(label_x, label_y + 0.06, label_text, fontsize=9, backgroundcolor='white', ha='center', va='bottom')
         
-
-    # 2. 사용자 곡선 그리기
     y_user = get_user_curve_spline(x_arr, user_H0p_L0)
     ax.plot(x_arr, y_user, color='blue', linewidth=2.5, alpha=0.7) 
     
-    # 3. 판독 결과 마킹
     ax.axvline(x=h_H0p_read, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
     ax.axhline(y=read_ratio, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
     ax.plot(h_H0p_read, read_ratio, 'ro', markersize=8)
@@ -284,48 +265,58 @@ with col2:
         ratio_hmax_h13 = Hmax_graph / H13
 
         # -----------------------------------------------------
-        # 렌더링 영역
+        # 렌더링 영역 (단위/수학기호 영문 고정)
         # -----------------------------------------------------
         with st.container():
-            st.markdown("### 가) 해저경사별 쇄파대 최대파고 산정도 판독 (도참 4-18a ~ 4-19e)")
-            
-            st.info(f"""
-            **[산정도 판독용 변수]**
-            * 해저경사 (tanθ) = {tanTheta}
-            * 환산심해파형경사 (H'o/Lo) = {H0p_L0_val:.4f}
-            * 상대수심 (h/H'o) = {h_H0p_val:.4f}
-            """)
-            
-            st.markdown(f"▶ 조건에 해당하는 산정도 곡선 자동 판독 결과: 파고비 (Hmax/H'o) = **{graph_ratio}**")
-            st.markdown(f"▶ **산정도 Hmax** = {graph_ratio} × {verified_H0p:.4f} = **{Hmax_graph:.4f} m**")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            st.markdown("### 나) 쇄파대 내 파고 약산식을 이용한 Hmax 산정 (비교 검증용)")
-            st.markdown(f"• βo* = {b0_s:.6f}, β1* = {b1_s:.6f}, βmax* = {bM_s:.6f}")
-            
-            st.markdown(f"""
-            > **[조건]** >   
-            > ① (βoH'o + β1h) = {fv1:.6f}  
-            >   
-            > ② βmax*H'o = {fv2:.6f}  
-            >   
-            > ③ 1.8 × Ks × H'o = {fv3:.6f}  
-            """)
-            
-            st.markdown(f"▶ **약산식 Hmax = min(①, ②, ③) = {Hmax_form:.6f} m**")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            st.markdown("### 📊 검토 결과 종합")
+            st.markdown("### 📊 검토 결과 요약")
             table_md = f"""
-| 산정 방법 | 계산 결과 (Hmax) | 비고 |
+| 산정 방법 | 계산 결과 ($H_{{\\max}}$) | 비고 |
 | :--- | :--- | :--- |
-| **쇄파대 내 최대파고 산정도** | {Hmax_graph:.4f} m | 🟢 **최종 적용** (H1/3의 {ratio_hmax_h13:.2f}배) |
-| **쇄파대 내 최대파고 약산식** | {Hmax_form:.4f} m | 검증용 |
-| **비쇄파시 최대파고** | {Hmax_non_breaking:.4f} m | 참고용 (1.8 × H1/3) |
+| **쇄파대 내 최대파고 산정도** | **{Hmax_graph:.4f} m** | 🟢 **최종 적용** ($H_{{1/3}}$의 {ratio_hmax_h13:.2f}배) |
+| **쇄파대 내 최대파고 약산식** | **{Hmax_form:.4f} m** | 검증용 |
+| **비쇄파시 최대파고** | **{Hmax_non_breaking:.4f} m** | 참고용 ($1.8 \\times H_{{1/3}}$) |
             """
             st.markdown(table_md)
+
+            st.markdown("---")
+
+            st.markdown("### 📝 상세 산출 과정")
+
+            st.markdown("#### 1) 기본 제원 및 심해파 환산")
+            # 초 단위를 s로 수정하고 번역 방지를 위해 LaTeX 블록 내에 배치
+            st.markdown(f"- **설계유의파주기 ($T_{{1/3}}$)** = {T13} $\\mathrm{{s}}$")
+            st.markdown(f"- **심해파장 ($L_0$)** = $1.56 \\times T_{{1/3}}^2$ = $1.56 \\times {T13}^2$ = **{L0:.4f} m**")
+            st.markdown(f"- **파형경사 ($h/L_0$)** = {h} / {L0:.4f} = **{d_L0:.6f}**")
+            st.markdown(f"- **환산심해파고 ($H_0'$)** = 역산 결과 **{verified_H0p:.4f} m** 적용 (천수계수 $K_s$ = {final_Ks:.4f} 고려)")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            st.markdown("#### 2) 가) 해저경사별 쇄파대 최대파고 산정도 판독 (도참 4-18a ~ 4-19e)")
+            st.info(f"""
+            **[산정도 판독용 변수]**
+            * 해저경사 ($\\tan\\theta$) = {tanTheta}
+            * 환산심해파형경사 ($H_0'/L_0$) = {verified_H0p:.4f} / {L0:.4f} = **{H0p_L0_val:.6f}**
+            * 상대수심 ($h/H_0'$) = {h} / {verified_H0p:.4f} = **{h_H0p_val:.4f}**
+            """)
+            st.markdown(f"▶ 조건에 해당하는 산정도 곡선 자동 판독 결과: 파고비 ($H_{{\\max}}/H_0'$) = **{graph_ratio:.4f}**")
+            st.success(f"▶ **산정도 $H_{{\\max}}$** = {graph_ratio:.4f} $\\times$ {verified_H0p:.4f} = **{Hmax_graph:.4f} m**")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            st.markdown("#### 3) 나) 쇄파대 내 파고 약산식을 이용한 $H_{{\\max}}$ 산정 (비교 검증용)")
+            st.markdown("**① 약산식 계수 산출:**")
+            # tan, exp, max 모두 LaTeX 예약어를 사용하여 강제 번역 방지 및 영문 렌더링 확정
+            st.markdown(f"- $\\beta_0^*$ = $0.052 \\times (H_0'/L_0)^{{-0.38}} \\times \\exp(20 \\times \\tan\\theta^{{1.5}})$ = **{b0_s:.6f}**")
+            st.markdown(f"- $\\beta_1^*$ = $0.63 \\times \\exp(3.8 \\times \\tan\\theta)$ = **{b1_s:.6f}**")
+            st.markdown(f"- $\\beta_{{\\max}}^*$ = $\\max\\left[1.65,\\ 0.53 \\times (H_0'/L_0)^{{-0.29}} \\times \\exp(2.4 \\times \\tan\\theta)\\right]$ = **{bM_s:.6f}**")
+
+            st.markdown("**② 최대파고 조건별 계산:**")
+            st.markdown(f"""
+            > - **Condition 1**: $\\beta_0^* H_0' + \\beta_1^* h$ = ({b0_s:.4f} $\\times$ {verified_H0p:.4f}) + ({b1_s:.4f} $\\times$ {h}) = **{fv1:.6f} m**
+            > - **Condition 2**: $\\beta_{{\\max}}^* H_0'$ = {bM_s:.4f} $\\times$ {verified_H0p:.4f} = **{fv2:.6f} m**
+            > - **Condition 3**: $1.8 \\times K_s \\times H_0'$ = $1.8 \\times {final_Ks:.4f} \\times {verified_H0p:.4f}$ = **{fv3:.6f} m**
+            """)
+            st.success(f"▶ **약산식 $H_{{\\max}}$** = $\\min$(Condition 1, Condition 2, Condition 3) = **{Hmax_form:.6f} m**")
 
             st.markdown("---")
 
