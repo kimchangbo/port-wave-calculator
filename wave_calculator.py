@@ -5,16 +5,56 @@ import numpy as np
 import matplotlib.path as mpath
 from matplotlib.ticker import MultipleLocator
 from scipy.interpolate import CubicSpline, make_interp_spline
+# 깨짐 방지를 위한 폰트 다운로드 및 등록용 라이브러리 추가
+import matplotlib.font_manager as fm
+import os
+import requests
 
 # 페이지 기본 설정
 st.set_page_config(page_title="최대파고 산정 프로그램", layout="wide", page_icon="🌊")
 
-# 한글 폰트 및 그래프 설정
-plt.rcParams['axes.unicode_minus'] = False
-try:
-    plt.rcParams['font.family'] = 'Malgun Gothic' # 윈도우 로컬용
-except:
-    pass
+# -----------------------------------------------------
+# ★ Matplotlib 한글 및 수식 깨짐 해결 (완전 자동화 방식) ★
+# -----------------------------------------------------
+# Streamlit Cloud 등 Linux 환경에서도 동작하도록 나눔고딕 폰트를 다운로드 및 적용합니다.
+@st.cache_resource # 앱 실행 시 한 번만 실행되도록 캐싱
+def install_and_get_font_name():
+    # 저장할 경로 및 파일명
+    font_path = "NanumGothic.ttf"
+    
+    # 1. 폰트 파일이 없으면 다운로드 (네이버 나눔고딕 CDN URL 사용)
+    if not os.path.exists(font_path):
+        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf"
+        try:
+            with st.spinner("도표 한글 출력을 위한 폰트를 다운로드 중입니다..."):
+                response = requests.get(font_url)
+                response.raise_for_status()
+                with open(font_path, 'wb') as f:
+                    f.write(response.content)
+        except Exception as e:
+            st.error(f"폰트 다운로드 실패. 도표 한글이 깨질 수 있습니다. 에러: {e}")
+            return "DejaVu Sans" # 실패 시 기본 폰트 반환
+
+    # 2. Matplotlib에 다운로드한 폰트 등록
+    try:
+        fm.fontManager.addfont(font_path)
+        font_prop = fm.FontProperties(fname=font_path)
+        font_name = font_prop.get_name()
+        return font_name
+    except Exception as e:
+        st.error(f"폰트 등록 실패: {e}")
+        return "DejaVu Sans"
+
+# 폰트 이름 가져오기 및 적용
+target_font_name = install_and_get_font_name()
+
+# Matplotlib 전역 설정 적용
+plt.rcParams['axes.unicode_minus'] = False # 마이너스 기호 깨짐 방지
+plt.rcParams['font.family'] = target_font_name # 다운로드한 폰트 적용
+# 수식 출력 시 한글 폰트 내의 글꼴을 사용하도록 설정 (윗첨자 등이 네모로 변하는 현상 방지)
+plt.rcParams['mathtext.fontset'] = 'stix' 
+# -----------------------------------------------------
+
 
 # 1. SPM Table C-1
 spm_table = [
@@ -116,6 +156,7 @@ goda_data_master = {
         0.08: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.177, 0.49, 0.794, 1.061, 1.269, 1.411, 1.512, 1.589, 1.654]},
     },
     0.05: {
+        # 임의 연장 폐기: 독취 데이터 원본 그대로 사용 (3.7까지만)
         0.002: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 3.7], 'y': [0.85, 1.112, 1.445, 1.823, 2.224, 2.64, 3.048, 3.403, 3.493]},
         0.005: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.573, 0.88, 1.248, 1.649, 2.066, 2.471, 2.719, 2.576, 2.413]},
         0.01: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.444, 0.76, 1.146, 1.557, 1.955, 2.227, 2.155, 2.038, 1.95]},
@@ -124,6 +165,7 @@ goda_data_master = {
         0.08: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.182, 0.542, 0.863, 1.121, 1.314, 1.452, 1.544, 1.606, 1.644]},
     },
     0.1: {
+        # 임의 연장 폐기: 독취 데이터 원본 그대로 사용 (2.61까지만)
         0.002: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 2.61], 'y': [1.208, 1.518, 1.927, 2.383, 2.879, 3.388, 3.498]},
         0.005: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.822, 1.183, 1.621, 2.115, 2.637, 3.039, 2.884, 2.604, 2.423]},
         0.01: {'x': [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], 'y': [0.628, 1.014, 1.472, 1.977, 2.419, 2.393, 2.169, 2.04, 1.959]},
@@ -139,23 +181,51 @@ def get_user_curve_spline(x_arr, target_H0p_L0, slope_data_dict):
     
     if target_H0p_L0 <= keys[0]:
         target_data = slope_data_dict[keys[0]]
-        return CubicSpline(target_data["x"], target_data["y"])(x_arr)
+        # points가 작을 경우 k값 조정하는 make_interp_spline용 안전 로직
+        x = np.array(target_data["x"])
+        y = np.array(target_data["y"])
+        if len(x) < 4:
+            return np.interp(x_arr, x, y) # 데이터 부족 시 선형 보간 fallback
+        spl = make_interp_spline(x, y, k=3)
+        return spl(x_arr)
+        
     if target_H0p_L0 >= keys[-1]:
         target_data = slope_data_dict[keys[-1]]
-        return CubicSpline(target_data["x"], target_data["y"])(x_arr)
+        x = np.array(target_data["x"])
+        y = np.array(target_data["y"])
+        if len(x) < 4:
+            return np.interp(x_arr, x, y)
+        spl = make_interp_spline(x, y, k=3)
+        return spl(x_arr)
 
     for i in range(len(keys)-1):
         if keys[i] <= target_H0p_L0 <= keys[i+1]:
             k1, k2 = keys[i], keys[i+1]
             break
 
-    y1 = CubicSpline(slope_data_dict[k1]["x"], slope_data_dict[k1]["y"])(x_arr)
-    y2 = CubicSpline(slope_data_dict[k2]["x"], slope_data_dict[k2]["y"])(x_arr)
+    data1 = slope_data_dict[k1]
+    x1, y1_pts = np.array(data1["x"]), np.array(data1["y"])
+    # 데이터 포인트 개수에 따라 k값 자동 조절하여 ValueError 방지
+    k_val1 = min(3, len(x1) - 1)
+    if k_val1 >= 1:
+        spl1 = make_interp_spline(x1, y1_pts, k=k_val1)
+        y1_interp = spl1(x_arr)
+    else:
+        y1_interp = np.interp(x_arr, x1, y1_pts)
+
+    data2 = slope_data_dict[k2]
+    x2, y2_pts = np.array(data2["x"]), np.array(data2["y"])
+    k_val2 = min(3, len(x2) - 1)
+    if k_val2 >= 1:
+        spl2 = make_interp_spline(x2, y2_pts, k=k_val2)
+        y2_interp = spl2(x_arr)
+    else:
+        y2_interp = np.interp(x_arr, x2, y2_pts)
 
     log_k1, log_k2, log_t = math.log10(k1), math.log10(k2), math.log10(target_H0p_L0)
     weight = (log_t - log_k1) / (log_k2 - log_k1)
 
-    return y1 + weight * (y2 - y1)
+    return y1_interp + weight * (y2_interp - y1_interp)
 
 # ★ 해저경사(tanTheta) 간의 보간을 포함하여 최종 파고비를 산출하는 함수 ★
 def get_final_graph_ratio(h_H0p_val, H0p_L0_val, tanTheta):
@@ -181,6 +251,9 @@ def get_final_graph_ratio(h_H0p_val, H0p_L0_val, tanTheta):
 
 # ★ 스플라인 기반 모사 그래프 생성 함수 ★
 def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
+    # 다운로드된 폰트 이름 확인 (디버깅용, 실제 사용시는 생략 가능)
+    # print(f"Using font: {plt.rcParams['font.family']}")
+
     fig, ax = plt.subplots(figsize=(5.5, 6.8)) 
     
     closest_slope = min(goda_data_master.keys(), key=lambda k: abs(k - tanTheta))
@@ -204,7 +277,7 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
     ax.grid(which='minor', color='black', linewidth=0.4)
     
     # -----------------------------------------------------
-    # 2% 감쇄선 (Decay line) 데이터베이스 (사용자 요청 정밀 좌표 반영)
+    # 2% 감쇄선 (Decay line) 데이터베이스 (사용자 요청 좌표 반영)
     # -----------------------------------------------------
     decay_lines = {
         0.01: { 
@@ -219,11 +292,11 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
             'x': [4.0, 3.5, 3.0, 2.6, 2.59, 2.58, 2.6, 2.65, 2.7, 2.8, 2.9, 3.0, 3.1],
             'y': [3.07, 2.67, 2.228, 1.80, 1.77, 1.75, 1.698, 1.65, 1.63, 1.605, 1.585, 1.575, 1.57]
         },
-        0.05: { 
+        0.05: { # 사용자 좌표 반영
             'x': [4.0, 3.5, 3.0, 2.5, 2.4, 2.39, 2.4, 2.45, 2.5, 2.6, 2.7, 2.8, 2.82],
             'y': [3.425, 2.97, 2.48, 1.91, 1.75, 1.70, 1.66, 1.63, 1.605, 1.58, 1.57, 1.575, 1.58]
         },
-        0.1: {
+        0.1: { # 사용자 좌표 반영
             'x': [3.18, 3.0, 2.5, 2.3, 2.0, 1.95, 1.94, 1.96, 1.98, 2.0, 2.1, 2.2, 2.3, 2.35, 2.4, 2.5],
             'y': [3.5, 3.33, 2.748, 2.48, 2.0, 1.85, 1.8, 1.73, 1.70, 1.68, 1.63, 1.61, 1.598, 1.596, 1.6, 1.61]
         }
@@ -241,37 +314,51 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
         t = np.concatenate(([0], np.cumsum(dists)))
         t = t / t[-1]
         
-        # 3차 스플라인(Cubic Spline, k=3) 적용으로 극도로 부드러운 곡률 보장
-        spl_x = make_interp_spline(t, x_arr, k=3)
-        spl_y = make_interp_spline(t, y_arr, k=3)
+        # 데이터 포인트 개수에 따라 k값 자동 조절 (make_interp_spline 경고 방지 로직)
+        k_val = min(3, len(x_arr) - 1)
         
-        t_fine = np.linspace(0, 1, 300)
-        fine_x = spl_x(t_fine)
-        fine_y = spl_y(t_fine)
-        
-        # 1. 감쇄선 렌더링 (진한색, 선명한 굵은 1점 쇄선)
-        ax.plot(fine_x, fine_y, color='#333333', linestyle='-.', linewidth=2.0, zorder=4)
-        
-        # 2. 감쇄선 라벨 삽입
-        ax.text(decay_data['x'][1] + 0.05, decay_data['y'][1], "2% Decay line", 
-                color='#333333', fontsize=10, fontweight='bold', rotation=45, ha='left')
+        if k_val >= 1: # 보간 가능한 점이 최소 2개 이상일 때
+            spl_x = make_interp_spline(t, x_arr, k=k_val)
+            spl_y = make_interp_spline(t, y_arr, k=k_val)
+            
+            t_fine = np.linspace(0, 1, 300)
+            fine_x = spl_x(t_fine)
+            fine_y = spl_y(t_fine)
+            
+            # 1. 감쇄선 렌더링 (진한색, 선명한 굵은 1점 쇄선)
+            ax.plot(fine_x, fine_y, color='#333333', linestyle='-.', linewidth=2.0, zorder=4)
+            
+            # 2. 감쇄선 라벨 삽입
+            ax.text(decay_data['x'][1] + 0.05, decay_data['y'][1], "2% Decay line", 
+                    color='#333333', fontsize=10, fontweight='bold', rotation=45, ha='left')
 
-        # 3. 우측 감쇄 영역 판별용 폴리곤 Path 생성 (x=10 넉넉하게 확장)
-        poly_points = list(zip(fine_x, fine_y))
-        poly_points.append((10.0, fine_y[-1])) 
-        poly_points.append((10.0, fine_y[0]))  
-        decay_path = mpath.Path(poly_points)
+            # 3. 우측 감쇄 영역 판별용 폴리곤 Path 생성 (x=10 넉넉하게 확장)
+            poly_points = list(zip(fine_x, fine_y))
+            poly_points.append((10.0, fine_y[-1])) 
+            poly_points.append((10.0, fine_y[0]))  
+            decay_path = mpath.Path(poly_points)
+        else:
+            # 점이 1개 이하면 선을 그리지 않음
+            pass
 
     # -----------------------------------------------------
     # 파형경사(기본) 곡선들 플롯팅 (감쇄선 영역 마스킹 포함)
     for s in base_data.keys():
         curve_data = base_data[s]
-        x_curve_arr = np.linspace(curve_data["x"][0], curve_data["x"][-1], 200)
-        y_curve = CubicSpline(curve_data["x"], curve_data["y"])(x_curve_arr)
+        x_pts, y_pts = np.array(curve_data["x"]), np.array(curve_data["y"])
+        
+        k_curve = min(3, len(x_pts) - 1)
+        x_curve_arr = np.linspace(x_pts[0], x_pts[-1], 200)
+
+        if k_curve >= 1:
+            spl_curve = make_interp_spline(x_pts, y_pts, k=k_curve)
+            y_curve = spl_curve(x_curve_arr)
+        else:
+            y_curve = np.interp(x_curve_arr, x_pts, y_pts)
         
         if decay_path:
-            pts = np.column_stack((x_curve_arr, y_curve))
-            inside = decay_path.contains_points(pts) # Path 내부(우측) 판별
+            pts_interp = np.column_stack((x_curve_arr, y_curve))
+            inside = decay_path.contains_points(pts_interp) 
             
             y_solid = np.ma.masked_where(inside, y_curve)
             y_dashed = np.ma.masked_where(~inside, y_curve)
@@ -314,11 +401,13 @@ def plot_authentic_chart_spline(h_H0p_read, read_ratio, user_H0p_L0, tanTheta):
     
     frac_slope = "1/" + str(int(1/tanTheta)) if tanTheta > 0 else f"{tanTheta}"
     ax.text(0.2, y_max - 0.2, f"  해저경사 {frac_slope} (모사)  ", fontsize=11, fontweight='bold', bbox=dict(facecolor='white', edgecolor='black', linewidth=1.2), zorder=5)
+    # math font 깨짐 방지를 위한 로직 적용됨 ($ 표기 내부)
     ax.text(1.0, y_max - 0.6, r"$H_{max} \equiv H_{1/250}$", fontsize=10, fontweight='bold', backgroundcolor='white', zorder=5)
     
     ax.set_xlim(0, x_max)
     ax.set_ylim(0, y_max)
     ax.set_xlabel("$h / H_0'$", fontsize=12)
+    # 분수 형태 수식 깨짐 방지 로직 적용
     ax.set_ylabel(r"$\frac{H_{max}}{H_0'}$", fontsize=14, rotation=0, labelpad=15)
     
     for spine in ax.spines.values():
@@ -420,6 +509,7 @@ with col2:
 
         with st.container():
             st.markdown("### 📊 검토 결과 요약")
+            # markdown 내부 수식 깨짐 방지 표기 방법 적용
             table_md = f"""
 | 산정 방법 | 계산 결과 ($H_{{\\max}}$) | 비고 |
 | :--- | :--- | :--- |
@@ -485,6 +575,7 @@ with col2:
             spacer1, col_fig, spacer2 = st.columns([1.5, 2.5, 1.5])
             with col_fig:
                 with st.spinner("스플라인 기반 원본 도표 생성 중..."):
+                    # 글씨 깨짐이 해결된 그래프 생성 함수 호출
                     fig = plot_authentic_chart_spline(h_H0p_val, graph_ratio, H0p_L0_val, tanTheta)
                     st.pyplot(fig, use_container_width=True)
 
