@@ -13,6 +13,11 @@ import requests
 # 페이지 기본 설정
 st.set_page_config(page_title="최대파고 산정 프로그램", layout="wide", page_icon="🌊")
 
+with st.sidebar:
+    st.markdown("---")
+    st.write("**제작자:** [김창보]")
+    st.write("**소속:** [다온기술]")
+    st.caption("© 2026 All rights reserved.")
 # -----------------------------------------------------
 # ★ Matplotlib 한글 및 수식 깨짐 해결 (완전 자동화 방식) ★
 # -----------------------------------------------------
